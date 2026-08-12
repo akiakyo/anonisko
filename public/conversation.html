@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#7a0019">
+  <meta name="description" content="AnonIsko anonymous conversation.">
+  <title>AnonIsko | Conversation</title>
+  <link id="siteFavicon" rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="stylesheet" href="/styles.css?v=310">
+  <script src="/terms-gate.js?v=310"></script>
+</head>
+<body class="conversation-page">
+  <div class="conversation-shell">
+    <header class="conversation-site-header">
+      <a class="brand brand-wordmark" href="/">
+        <span class="logo-orb"><img src="/assets/favicon.svg" alt="" width="38" height="38"></span>
+        <span class="anonisko-word">AnonIsko</span>
+      </a>
+      <div class="conversation-header-actions">
+        <span class="presence"><span class="presence-dot"></span><span id="onlineCount">0 online</span></span>
+        <button class="theme-toggle" type="button" aria-label="Toggle dark mode" data-theme-toggle>
+          <span class="theme-icon sun-icon"></span><span class="theme-icon moon-icon"></span>
+        </button>
+      </div>
+    </header>
+
+    <main class="conversation-main">
+      <section id="reconnectView" class="conversation-state-card">
+        <div class="match-animation-scene compact">
+          <div class="match-orbit">
+            <div class="match-person match-person-left"><span class="match-head"></span><span class="match-body"></span></div>
+            <div class="match-center-logo"><img src="/assets/favicon.svg" alt=""></div>
+            <div class="match-person match-person-right"><span class="match-head"></span><span class="match-body"></span></div>
+          </div>
+          <p class="kicker">connecting</p>
+          <h1>Opening your conversation...</h1>
+          <p>Restoring the anonymous session.</p>
+          <div class="conversation-skeleton" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+      </section>
+
+      <section id="findingView" class="conversation-state-card hidden">
+        <div class="match-animation-scene">
+          <div class="match-orbit">
+            <div class="match-person match-person-left"><span class="match-head"></span><span class="match-body"></span></div>
+            <div class="match-center-logo"><img src="/assets/favicon.svg" alt=""></div>
+            <div class="match-person match-person-right"><span class="match-head"></span><span class="match-body"></span></div>
+          </div>
+          <p class="kicker">Matchmaking</p>
+          <h1 id="findingTitle">Finding someone...</h1>
+          <p>Searching for another compatible student.</p>
+          <div class="match-progress"><span></span></div>
+          <button id="cancelFindButton" class="secondary-button" type="button">Cancel</button>
+        </div>
+      </section>
+
+      <section id="connectedAnimationView" class="conversation-state-card connected-state hidden">
+        <div class="match-animation-scene connected">
+          <div class="match-orbit">
+            <div class="match-person match-person-left"><span class="match-head"></span><span class="match-body"></span></div>
+            <div class="match-center-logo"><img src="/assets/favicon.svg" alt=""></div>
+            <div class="match-person match-person-right"><span class="match-head"></span><span class="match-body"></span></div>
+          </div>
+          <p class="kicker">Connected</p>
+          <h1 id="connectedAnimationTitle">Connected.</h1>
+          <p>Starting your conversation...</p>
+        </div>
+      </section>
+
+      <section id="chatView" class="animo-chat conversation-chat hidden">
+        <header class="animo-chat-topbar">
+          <div class="animo-user">
+            <div class="animo-avatar" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="25" height="25" fill="none">
+                <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8c.8-4 3.2-6 7-6s6.2 2 7 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="animo-user-copy">
+              <div class="animo-name-row">
+                <h2 id="partnerNickname">Anonymous</h2>
+                <span class="status-dot"></span>
+              </div>
+              <p id="partnerDetails" class="partner-details"></p>
+              <div id="partnerContext" class="partner-context"></div>
+            </div>
+          </div>
+
+          <div class="animo-session-tools">
+            <div class="conversation-clock discord-clock" title="Conversation duration">
+              <span class="duration-speaker" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+                  <path d="M4 10v4h4l5 4V6L8 10H4Z" fill="currentColor"/>
+                  <path d="M16 9c1.2 1.5 1.2 4.5 0 6M18.5 6.5c3.2 3 3.2 8 0 11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                </svg>
+              </span>
+              <strong id="conversationClock">00:00:00</strong>
+            </div>
+            <button id="endButtonHeader" class="header-end-button" type="button">End</button>
+            <button id="moreActionsButton" class="header-more-button" type="button" aria-label="More conversation actions" aria-haspopup="dialog">
+              <span></span><span></span><span></span>
+            </button>
+          </div>
+        </header>
+        <div id="offlineBanner" class="offline-banner hidden" role="status">
+          <span></span>You are offline. The conversation stays open.
+        </div>
+
+        <div class="animo-announcement">
+          <div class="announcement-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="21" height="21" fill="none">
+              <path d="M4 13V9l12-4v12L4 13Zm0 0 2 6h4l-2-5" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="announcement-copy">
+            <strong id="presenceHeadline">connected.</strong>
+            <span id="presenceMessage">keep it respectful and keep personal details private.</span>
+          </div>
+          <button id="icebreakerButton" class="icebreaker-button" type="button">Icebreaker</button>
+          <span id="waitingCount" class="small-stat">0 waiting</span>
+        </div>
+        <div id="messages" class="animo-messages messages" aria-live="polite">
+          <div id="emptyConversationState" class="empty-conversation-state">
+            <span class="conversation-line-mark" aria-hidden="true"></span>
+            <p>you found each other. say something, or start with a question.</p>
+            <button id="emptyIcebreakerButton" type="button">give me a question</button>
+          </div>
+        </div>
+        <button id="newMessagesButton" class="new-messages-button hidden" type="button">
+          <span id="newMessagesCount">1 new message</span>
+          <span aria-hidden="true">↓</span>
+        </button>
+
+        <div class="animo-status-row">
+          <p id="typingStatus" class="typing-status"></p>
+          <span class="mobile-clock discord-mobile-clock" id="mobileConversationClock">00:00:00</span>
+        </div>
+
+        <div id="voiceRecorder" class="voice-recorder hidden">
+          <div class="voice-recording-dot"></div>
+          <div class="voice-recorder-copy">
+            <strong>recording voice message</strong>
+            <div class="recording-live-row">
+              <div id="recordingWaveform" class="recording-waveform" aria-hidden="true"></div>
+              <span id="voiceTimer">00:00</span>
+            </div>
+          </div>
+          <button id="cancelVoiceButton" class="voice-cancel-button" type="button">Cancel</button>
+          <button id="sendVoiceButton" class="voice-send-button" type="button">Send</button>
+        </div>
+
+        <div id="replyPreview" class="reply-preview hidden">
+          <div>
+            <span class="reply-label">replying to</span>
+            <strong id="replyPreviewSender">message</strong>
+            <p id="replyPreviewText"></p>
+          </div>
+          <button id="cancelReplyButton" type="button" aria-label="Cancel reply">X</button>
+        </div>
+
+        <form id="messageForm" class="animo-composer composer desktop-composer">
+          <button id="voiceButtonDesktop" class="composer-icon-button desktop-only-action" type="button" title="Record voice message" aria-label="Record voice message">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
+              <rect x="8" y="3" width="8" height="12" rx="4" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <div class="composer-input-wrap">
+            <textarea id="messageInput" rows="1" maxlength="1000" aria-label="Message"></textarea>
+            <span id="characterCounter" class="character-counter hidden">0 / 1000</span>
+          </div>
+          <button class="send-button animo-send-button" type="submit">Send</button>
+        </form>
+
+        <nav class="mobile-action-dock" aria-label="Conversation quick actions">
+          <button id="voiceButtonMobile" type="button" class="mobile-dock-button">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+              <rect x="8" y="3" width="8" height="12" rx="4" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+            <span>Voice</span>
+          </button>
+        </nav>
+
+        <section id="endedState" class="ended-inline hidden" aria-live="polite">
+    <div class="ended-inline-inner">
+      <div class="ended-status-line">
+        <span id="endedStatusText">You ended the chat.</span>
+        <button id="endedReportLink" class="inline-action-link" type="button">Report?</button>
+        <button id="endedBlockLink" class="inline-action-link danger-link" type="button">Block</button>
+      </div>
+      <div class="ended-new-chat-card">
+        <div>
+          <p class="kicker">conversation ended</p>
+          <h2 id="endedHeading">Your conversation has ended.</h2>
+          <p>Start a new anonymous conversation whenever you're ready.</p>
+        </div>
+        <button id="nextConversationButton" class="primary-button new-chat-button" type="button">New chat</button>
+      </div>
+    </div>
+  </section>
+      </section>
+    </main>
+  </div>
+
+
+
+
+  <dialog id="moreActionsDialog" class="action-sheet-dialog">
+    <div class="action-sheet">
+      <div class="action-sheet-handle"></div>
+      <p class="action-sheet-title">conversation actions</p>
+      <button id="moreReportButton" type="button" class="action-sheet-option">Report</button>
+      <button id="moreBlockButton" type="button" class="action-sheet-option danger-option">Block</button>
+      <button id="closeMoreActions" type="button" class="action-sheet-cancel">Cancel</button>
+    </div>
+  </dialog>
+
+  <dialog id="messageActionDialog" class="action-sheet-dialog">
+    <div class="action-sheet">
+      <div class="action-sheet-handle"></div>
+      <p class="action-sheet-title">message</p>
+      <button id="sheetReplyButton" type="button" class="action-sheet-option">Reply</button>
+      <button id="closeMessageActions" type="button" class="action-sheet-cancel">Cancel</button>
+    </div>
+  </dialog>
+
+  <dialog id="endConfirmDialog" class="confirm-dialog">
+    <div class="confirm-card">
+      <p class="kicker">end conversation</p>
+      <h2>Do you want to end this conversation?</h2>
+      <p>The other person will be disconnected from this chat too.</p>
+      <div class="confirm-actions">
+        <button id="cancelEndConfirm" class="secondary-button" type="button">No</button>
+        <button id="confirmEndButton" class="primary-button" type="button">Yes, end chat</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="blockConfirmDialog" class="confirm-dialog">
+    <div class="confirm-card">
+      <p class="kicker">block user</p>
+      <h2 id="blockConfirmTitle">Block this person?</h2>
+      <p>You won't be matched with this anonymous session again.</p>
+      <div class="confirm-actions">
+        <button id="cancelBlockConfirm" class="secondary-button" type="button">Cancel</button>
+        <button id="confirmBlockButton" class="primary-button danger-button" type="button">Block</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="reportDialog">
+    <form id="reportForm" method="dialog" class="dialog-card">
+      <div class="dialog-heading">
+        <div>
+          <p class="kicker">Safety</p>
+          <h2>Report this conversation</h2>
+        </div>
+        <button id="closeReport" class="dialog-close" type="button" aria-label="Close">X</button>
+      </div>
+      <label class="field">
+        <span>Reason</span>
+        <select id="reportReason" required>
+          <option value="harassment">Harassment</option>
+          <option value="sexual_content">Sexual content</option>
+          <option value="spam">Spam</option>
+          <option value="hate">Hate or discrimination</option>
+          <option value="personal_info">Sharing personal information</option>
+          <option value="other">Other</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Additional details</span>
+        <textarea id="reportDetails" maxlength="500" rows="4" placeholder="Optional"></textarea>
+      </label>
+      <div class="dialog-actions">
+        <button id="cancelReport" class="secondary-button" type="button">Cancel</button>
+        <button class="primary-button" type="submit">Submit report</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/theme.js?v=310"></script>
+  <script src="/socket.io/socket.io.js?v=310"></script>
+  <script src="/conversation.js?v=310"></script>
+</body>
+</html>

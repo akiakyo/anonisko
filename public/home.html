@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#7a0019">
+  <meta name="description" content="AnonIsko is an independent anonymous text conversation platform for PUP students.">
+  <title>AnonIsko | Home</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="stylesheet" href="/styles.css?v=310">
+  <script src="/terms-gate.js?v=310"></script>
+</head>
+<body class="marketing-page home-entering">
+
+  <div id="siteIntro" class="site-intro" aria-hidden="true">
+    <div class="site-intro-logo-wrap">
+      <span class="site-intro-ring"></span>
+      <img src="/assets/favicon.svg" alt="" class="site-intro-logo">
+    </div>
+  </div>
+
+  <div class="site-shell">
+    <header class="topbar">
+      <a class="brand brand-wordmark" href="/home">
+        <span class="logo-orb"><img src="/assets/favicon.svg" alt="" width="38" height="38"></span>
+        <span class="anonisko-word">AnonIsko</span>
+      </a>
+      <nav class="main-nav" aria-label="Primary navigation">
+        <a class="active" href="/home">Home</a>
+        <a href="/about">About</a>
+        <a href="/terms">Terms</a>
+      </nav>
+      <button class="theme-toggle" type="button" aria-label="Toggle dark mode" data-theme-toggle>
+        <span class="theme-icon sun-icon"></span>
+        <span class="theme-icon moon-icon"></span>
+      </button>
+    </header>
+
+    <main class="home-main">
+      <section class="home-hero">
+        <div class="intro-logo-wrap" aria-hidden="true">
+          <div class="intro-rings"></div>
+          <img class="intro-logo" src="/assets/favicon.svg" alt="">
+        </div>
+
+        <p class="eyebrow">Anonymous student conversations</p>
+        <h1 class="home-title"><span class="anonisko-word gradient-wordmark">AnonIsko</span></h1>
+        <p class="home-tagline">Meet an Isko. Meet an Iska. Stay anonymous.</p>
+        <p class="home-description">
+          An anonymous space for students to meet, talk, and connect without building a public profile.
+        </p>
+        
+        <div class="home-actions">
+          <button id="openChatModal" class="chat-launch-card" type="button" aria-haspopup="dialog" aria-controls="homeChatModal">
+            <span class="chat-launch-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="30" height="30" fill="none">
+                <path d="M7.4 18.2 4 20v-4.1A7.7 7.7 0 0 1 3 12C3 7.6 7 4 12 4s9 3.6 9 8-4 8-9 8c-1.7 0-3.2-.4-4.6-1.1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span class="chat-launch-copy">
+              <strong>Main chat</strong>
+              <span>Talk to students, stay anonymous</span>
+            </span>
+          </button>
+          <a class="secondary-button hero-secondary" href="/about">Learn about AnonIsko</a>
+        </div>
+
+
+        <div class="home-feature-grid">
+          <article class="feature-card reveal-card">
+            <h2>Anonymous by design</h2>
+            <p>Use a nickname, select your campus, and start a conversation without a profile photo or real name.</p>
+          </article>
+          <article class="feature-card reveal-card">
+            <h2>Private conversations</h2>
+            <p>Chat through text or voice messages while keeping your anonymous profile simple.</p>
+          </article>
+          <article class="feature-card reveal-card">
+            <h2>Built for PUP students and students nationwide</h2>
+            <p>Connect anonymously with fellow students from PUP and other schools across the Philippines.</p>
+          </article>
+        </div>
+      </section>
+    </main>
+
+
+      <dialog id="homeChatModal" class="home-chat-modal modal-animated">
+        <div class="home-chat-modal-shell">
+          <button id="closeHomeChatModal" class="modal-x" type="button" aria-label="Close chat modal">X</button>
+
+          <section id="setupView" class="modal-setup-view">
+            <div class="modal-chat-topline"><span class="presence"><span class="presence-dot"></span><span id="onlineCount">0 online</span></span></div>
+          <div class="modal-chat-heading">
+              <span class="chat-launch-icon modal-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none">
+                  <path d="M7.4 18.2 4 20v-4.1A7.7 7.7 0 0 1 3 12C3 7.6 7 4 12 4s9 3.6 9 8-4 8-9 8c-1.7 0-3.2-.4-4.6-1.1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <div>
+                <p class="kicker">Main chat</p>
+                <h2>Create your anonymous profile</h2>
+                <p>Choose a nickname, your vibe, and a few interests. We will use them to improve your match.</p>
+              </div>
+            </div>
+
+            <form id="profileForm" autocomplete="off">
+              <label class="field">
+                <span>Nickname</span>
+                <input id="nickname" name="nickname" maxlength="24" minlength="3" placeholder="e.g. MidnightIsko" required>
+                <small>3 to 24 characters. Letters, numbers, spaces, underscore, dash, and period.</small>
+              </label>
+
+              <fieldset class="field">
+                <legend>Gender</legend>
+                <div class="segmented">
+                  <label>
+                    <input type="radio" name="gender" value="male" required>
+                    <span>Male</span>
+                  </label>
+                  <label>
+                    <input type="radio" name="gender" value="female" required>
+                    <span>Female</span>
+                  </label>
+                </div>
+              </fieldset>
+
+              <label class="field">
+                <span>Campus / School</span>
+                <select id="campus" name="campus" required>
+                  <option value="">Select your campus</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>I want to talk to</span>
+                <select id="preference" name="preference" required>
+                  <option value="anyone">Anyone</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+              </label>
+
+
+              <fieldset class="field profile-options-field">
+                <legend>Conversation vibe</legend>
+                <div id="vibeOptions" class="vibe-options" role="radiogroup" aria-label="Conversation vibe"></div>
+                <small>What kind of conversation are you looking for right now?</small>
+              </fieldset>
+
+              <fieldset class="field profile-options-field">
+                <legend>Interests <span class="field-optional">optional, up to 3</span></legend>
+                <div id="interestOptions" class="interest-options" aria-label="Conversation interests"></div>
+                <small>Shared interests are prioritized when a compatible student is available.</small>
+              </fieldset>
+
+              <button class="primary-button profile-find-button" type="submit">Find someone</button>
+              <p id="formMessage" class="form-message" role="status"></p>
+            </form>
+          </section>
+
+          <section id="waitingView" class="center-view modal-center-view hidden" aria-live="polite">
+            <div class="status-card modal-status-card">
+              <div class="search-mark" aria-hidden="true">
+                <span></span><span></span><span></span>
+              </div>
+              <p class="kicker">Matchmaking</p>
+              <h2>Looking for someone...</h2>
+              <p id="waitingText">Searching for a compatible student.</p>
+              <button id="cancelSearchButton" class="secondary-button" type="button">Cancel search</button>
+            </div>
+          </section>
+
+        </div>
+      </dialog>
+
+      <div id="endOverlay" class="end-overlay hidden" aria-live="polite">
+        <div class="end-animation-card">
+          <div class="end-logo-stage">
+            <div class="end-logo-ring"></div>
+            <img src="/assets/favicon.svg" alt="" class="end-logo">
+          </div>
+          <p class="kicker">Conversation ended</p>
+          <h2 id="endOverlayTitle">The conversation has ended.</h2>
+          <p id="endOverlayText">You can return to the match screen and meet someone new.</p>
+          <button id="endOverlayButton" class="primary-button" type="button">Find another conversation</button>
+        </div>
+      </div>
+
+      <dialog id="reportDialog">
+        <form id="reportForm" method="dialog" class="dialog-card">
+          <div class="dialog-heading">
+            <div>
+              <p class="kicker">Safety</p>
+              <h2>Report this conversation</h2>
+            </div>
+            <button id="closeReport" class="dialog-close" value="cancel" aria-label="Close report dialog" type="button">X</button>
+          </div>
+
+          <label class="field">
+            <span>Reason</span>
+            <select id="reportReason" required>
+              <option value="harassment">Harassment</option>
+              <option value="sexual_content">Sexual content</option>
+              <option value="spam">Spam</option>
+              <option value="hate">Hate or discrimination</option>
+              <option value="personal_info">Sharing personal information</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Additional details</span>
+            <textarea id="reportDetails" maxlength="500" rows="4" placeholder="Optional"></textarea>
+          </label>
+
+          <div class="dialog-actions">
+            <button id="cancelReport" class="secondary-button" type="button">Cancel</button>
+            <button class="primary-button" type="submit">Submit report</button>
+          </div>
+        </form>
+      </dialog>
+
+    <footer class="footer site-footer">
+      <p>AnonIsko is an independent student project and is not affiliated with the Polytechnic University of the Philippines.</p>
+      <p>AnonIsko 2026. All rights reserved.</p>
+    </footer>
+  </div>
+  <script src="/theme.js?v=310"></script>
+  <script src="/socket.io/socket.io.js?v=310"></script>
+  <script src="/home-profile.js?v=310"></script>
+  <script src="/home.js?v=310"></script>
+</body>
+</html>
