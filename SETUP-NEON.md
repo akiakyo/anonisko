@@ -33,3 +33,14 @@ npm start
 ```
 
 Health check: `http://localhost:3000/api/health`
+
+
+## Shared matchmaking queue (v3.6.33)
+
+This build stores the waiting matchmaking queue in Neon instead of Node/Vercel memory. After uploading this version, make sure the new migration is applied:
+
+```bash
+npm run db:deploy
+```
+
+On Vercel, the production database must contain the `match_queue` table. The `/finding` page also polls `/api/match-status` so users can discover a match even when Vercel routes their Socket.IO connections to different function instances.

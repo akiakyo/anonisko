@@ -43,6 +43,16 @@ model AnonymousSession {
   @@map("anonymous_sessions")
 }
 
+model MatchQueue {
+  sessionUuid String   @id @map("session_uuid") @db.Uuid
+  joinedAt    DateTime @default(now()) @map("joined_at") @db.Timestamptz(6)
+  lastSeenAt  DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+
+  @@index([lastSeenAt], map: "idx_match_queue_last_seen")
+  @@index([joinedAt], map: "idx_match_queue_joined")
+  @@map("match_queue")
+}
+
 model Match {
   id        BigInt    @id @default(autoincrement())
   matchUuid String    @unique @map("match_uuid") @db.Uuid

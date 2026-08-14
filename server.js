@@ -133,7 +133,6 @@ const ACTIVITY_PROMPTS = {
 
 
 
-const queue = new Map();
 const socketState = new Map();
 const activeMatches = new Map();
 const conversationFeedback = new Map();
@@ -210,11 +209,11 @@ app.post("/api/end-chat-beacon", async (req, res) => {
     const sessionUuid = String(req.body?.sessionUuid || "").trim().slice(0, 80);
     if (!sessionUuid) return res.status(204).end();
 
-    queue.delete(sessionUuid);
+    await prisma.matchQueue.deleteMany({ where: { sessionUuid } });
 
-    if (activeMatches.has(sessionUuid)) {
+    if (await getActiveMatchRecord(sessionUuid)) {
       await endMatchForSession(sessionUuid, sessionUuid, "partner-left");
-      broadcastStats();
+      await broadcastStats();
     }
 
     res.status(204).end();
@@ -226,7 +225,7 @@ app.post("/api/end-chat-beacon", async (req, res) => {
 });
 
 app.use((req, res, next) => {
-  res.setHeader("X-AnonIsko-Build", "3.6.32");
+  res.setHeader("X-AnonIsko-Build", "3.6.33");
   // development: always serve fresh frontend files
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma", "no-cache");
@@ -353,15 +352,42 @@ async function upsertSession(sessionUuid, profile) {
   });
 }
 
-async function endMatchForSession(sessionUuid, endedBy, reason = "ended") {
-  const matchUuid = activeMatches.get(sessionUuid);
-  if (!matchUuid) return;
+async function getActiveMatchRecord(sessionUuid) {
+  return prisma.match.findFirst({
+    where: {
+      endedAt: null,
+      OR: [{ sessionA: sessionUuid }, { sessionB: sessionUuid }]
+    },
+    orderBy: { createdAt: "desc" }
+  });
+}
 
-  const peerSession = [...activeMatches.entries()]
-    .find(([sid, mid]) => mid === matchUuid && sid !== sessionUuid)?.[0];
+async function getPartnerProfile(match, sessionUuid) {
+  if (!match) return null;
+  const partnerSession = match.sessionA === sessionUuid ? match.sessionB : match.sessionA;
+  const profile = await prisma.anonymousSession.findUnique({
+    where: { sessionUuid: partnerSession }
+  });
+  if (!profile) return null;
+  return {
+    sessionUuid: partnerSession,
+    nickname: profile.nickname,
+    gender: profile.gender,
+    campus: profile.campus,
+    interests: profile.interests || [],
+    vibe: profile.vibe || "Random"
+  };
+}
+
+async function endMatchForSession(sessionUuid, endedBy, reason = "ended") {
+  const match = await getActiveMatchRecord(sessionUuid);
+  if (!match) return;
+
+  const matchUuid = match.matchUuid;
+  const peerSession = match.sessionA === sessionUuid ? match.sessionB : match.sessionA;
 
   activeMatches.delete(sessionUuid);
-  if (peerSession) activeMatches.delete(peerSession);
+  activeMatches.delete(peerSession);
 
   for (const key of reactionState.keys()) {
     if (key.startsWith(`${matchUuid}:`)) reactionState.delete(key);
@@ -372,113 +398,221 @@ async function endMatchForSession(sessionUuid, endedBy, reason = "ended") {
     data: { endedBy: endedBy || sessionUuid, endedAt: new Date() }
   });
 
-  // emit through session rooms so the event survives socket reconnects
+  await prisma.matchQueue.deleteMany({
+    where: { sessionUuid: { in: [sessionUuid, peerSession] } }
+  }).catch(() => {});
+
   io.to(`session:${sessionUuid}`).emit("chat-ended", {
     reason,
     endedBySelf: endedBy === sessionUuid
   });
 
-  if (peerSession) {
-    io.to(`session:${peerSession}`).emit("chat-ended", {
-      reason: reason === "partner-left" ? "partner-left" : "ended",
-      endedBySelf: false
+  io.to(`session:${peerSession}`).emit("chat-ended", {
+    reason: reason === "partner-left" ? "partner-left" : "ended",
+    endedBySelf: false
+  });
+}
+
+async function createMatchAtomically(sessionUuid, candidateSessionUuid) {
+  const ordered = [sessionUuid, candidateSessionUuid].sort();
+
+  return prisma.$transaction(async (tx) => {
+    // Serialize attempts involving either anonymous session so two Vercel
+    // instances cannot match the same person at the same time.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${ordered[0]}))`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${ordered[1]}))`;
+
+    const alreadyMatched = await tx.match.findFirst({
+      where: {
+        endedAt: null,
+        OR: [
+          { sessionA: { in: [sessionUuid, candidateSessionUuid] } },
+          { sessionB: { in: [sessionUuid, candidateSessionUuid] } }
+        ]
+      },
+      select: { matchUuid: true }
     });
+    if (alreadyMatched) return null;
+
+    const queueRows = await tx.matchQueue.findMany({
+      where: { sessionUuid: { in: [sessionUuid, candidateSessionUuid] } },
+      select: { sessionUuid: true }
+    });
+    if (queueRows.length !== 2) return null;
+
+    const matchUuid = uuidv4();
+    const match = await tx.match.create({
+      data: { matchUuid, sessionA: sessionUuid, sessionB: candidateSessionUuid }
+    });
+
+    await tx.matchQueue.deleteMany({
+      where: { sessionUuid: { in: [sessionUuid, candidateSessionUuid] } }
+    });
+
+    return match;
+  });
+}
+
+async function attemptMatchBySession(sessionUuid) {
+  const profile = await prisma.anonymousSession.findUnique({ where: { sessionUuid } });
+  if (!profile) return null;
+
+  const existing = await getActiveMatchRecord(sessionUuid);
+  if (existing) return existing;
+
+  const now = new Date();
+  const staleBefore = new Date(Date.now() - 45_000);
+
+  await prisma.matchQueue.deleteMany({ where: { lastSeenAt: { lt: staleBefore } } });
+
+  const existingQueue = await prisma.matchQueue.findUnique({ where: { sessionUuid } });
+  if (existingQueue) {
+    await prisma.matchQueue.update({ where: { sessionUuid }, data: { lastSeenAt: now } });
+  } else {
+    await prisma.matchQueue.create({ data: { sessionUuid, joinedAt: now, lastSeenAt: now } });
   }
+
+  const waiting = await prisma.matchQueue.findMany({
+    where: { sessionUuid: { not: sessionUuid }, lastSeenAt: { gte: staleBefore } },
+    orderBy: { joinedAt: "asc" },
+    take: 40
+  });
+
+  if (!waiting.length) return null;
+
+  const ids = waiting.map((row) => row.sessionUuid);
+  const profiles = await prisma.anonymousSession.findMany({
+    where: { sessionUuid: { in: ids } }
+  });
+  const profileMap = new Map(profiles.map((item) => [item.sessionUuid, item]));
+  const candidates = [];
+
+  for (const row of waiting) {
+    const candidate = profileMap.get(row.sessionUuid);
+    if (!candidate) continue;
+    if (!compatible(profile, candidate)) continue;
+    if (await isBlockedEitherWay(sessionUuid, candidate.sessionUuid)) continue;
+
+    const sharedInterests = (profile.interests || [])
+      .filter((interest) => (candidate.interests || []).includes(interest)).length;
+    const waitBonus = Math.min(2, Math.floor((Date.now() - row.joinedAt.getTime()) / 15000));
+    candidates.push({ candidate, row, score: sharedInterests * 3 + waitBonus });
+  }
+
+  candidates.sort((a, b) => b.score - a.score || a.row.joinedAt - b.row.joinedAt);
+
+  for (const item of candidates) {
+    const created = await createMatchAtomically(sessionUuid, item.candidate.sessionUuid);
+    if (created) return created;
+  }
+
+  return null;
 }
 
 async function attemptMatch(socket) {
   const state = socketState.get(socket.id);
-  if (!state || !state.profile || !state.sessionUuid) return;
+  if (!state || !state.profile || !state.sessionUuid) return null;
 
-  queue.set(state.sessionUuid, {
-    sessionUuid: state.sessionUuid,
-    socketId: socket.id,
-    profile: state.profile,
-    joinedAt: Date.now()
+  const match = await attemptMatchBySession(state.sessionUuid);
+  if (!match) {
+    socket.emit("queue-status", { waiting: true });
+    await broadcastStats();
+    return null;
+  }
+
+  const partner = await getPartnerProfile(match, state.sessionUuid);
+  if (!partner) return null;
+  const peerSession = partner.sessionUuid;
+
+  activeMatches.set(state.sessionUuid, match.matchUuid);
+  activeMatches.set(peerSession, match.matchUuid);
+  sessionProfiles.set(state.sessionUuid, state.profile);
+
+  socket.emit("matched", {
+    matchUuid: match.matchUuid,
+    partner: {
+      nickname: partner.nickname,
+      gender: partner.gender,
+      campus: partner.campus,
+      interests: partner.interests,
+      vibe: partner.vibe
+    }
   });
 
-  const candidates = [];
+  // This reaches peers on the same function instance. Peers on another
+  // instance discover the same DB-backed match through /api/match-status.
+  io.to(`session:${peerSession}`).emit("matched", {
+    matchUuid: match.matchUuid,
+    partner: {
+      nickname: state.profile.nickname,
+      gender: state.profile.gender,
+      campus: state.profile.campus,
+      interests: state.profile.interests || [],
+      vibe: state.profile.vibe || "Random"
+    }
+  });
 
-  for (const [candidateId, candidate] of queue.entries()) {
-    if (candidateId === state.sessionUuid) continue;
+  await broadcastStats();
+  return match;
+}
 
-    const candidateSockets = await io.in(`session:${candidate.sessionUuid}`).fetchSockets();
-    if (!candidateSockets.length) {
-      queue.delete(candidateId);
-      continue;
+async function broadcastStats() {
+  try {
+    const cutoff = new Date(Date.now() - 45_000);
+    const waiting = await prisma.matchQueue.count({ where: { lastSeenAt: { gte: cutoff } } });
+    io.emit("stats", { online: sessionToSocket.size, waiting });
+  } catch {
+    io.emit("stats", { online: sessionToSocket.size, waiting: 0 });
+  }
+}
+
+app.post("/api/match-status", async (req, res) => {
+  try {
+    const sessionUuid = String(req.body?.sessionUuid || "").trim();
+    if (!/^[0-9a-f-]{36}$/i.test(sessionUuid)) {
+      return res.status(400).json({ ok: false, error: "Invalid session." });
     }
 
-    if (!compatible(state.profile, candidate.profile)) continue;
-    if (await isBlockedEitherWay(state.sessionUuid, candidate.sessionUuid)) continue;
+    const profile = await prisma.anonymousSession.findUnique({ where: { sessionUuid } });
+    if (!profile) return res.status(404).json({ ok: false, error: "Profile not found." });
 
-    const sharedInterests = (state.profile.interests || [])
-      .filter((interest) => (candidate.profile.interests || []).includes(interest)).length;
-    const waitBonus = Math.min(2, Math.floor((Date.now() - candidate.joinedAt) / 15000));
+    let match = await getActiveMatchRecord(sessionUuid);
+    if (!match) match = await attemptMatchBySession(sessionUuid);
 
-    candidates.push({
-      candidate,
-      score: sharedInterests * 3 + waitBonus
-    });
-  }
+    if (!match) return res.json({ ok: true, matched: false });
 
-  if (candidates.length) {
-    candidates.sort((a, b) => b.score - a.score || a.candidate.joinedAt - b.candidate.joinedAt);
-    const candidate = candidates[0].candidate;
+    const partner = await getPartnerProfile(match, sessionUuid);
+    if (!partner) return res.json({ ok: true, matched: false });
 
-    queue.delete(state.sessionUuid);
-    queue.delete(candidate.sessionUuid);
-
-    const matchUuid = uuidv4();
-
-    activeMatches.set(state.sessionUuid, matchUuid);
-    activeMatches.set(candidate.sessionUuid, matchUuid);
-    sessionProfiles.set(state.sessionUuid, state.profile);
-    sessionProfiles.set(candidate.sessionUuid, candidate.profile);
-
-    await prisma.match.create({
-      data: {
-        matchUuid,
-        sessionA: state.sessionUuid,
-        sessionB: candidate.sessionUuid
-      }
-    });
-
-    socket.emit("matched", {
-      matchUuid,
+    return res.json({
+      ok: true,
+      matched: true,
+      matchUuid: match.matchUuid,
       partner: {
-        nickname: candidate.profile.nickname,
-        gender: candidate.profile.gender,
-        campus: candidate.profile.campus,
-        interests: candidate.profile.interests || [],
-        vibe: candidate.profile.vibe || "Random"
+        nickname: partner.nickname,
+        gender: partner.gender,
+        campus: partner.campus,
+        interests: partner.interests,
+        vibe: partner.vibe
       }
     });
-
-    io.to(`session:${candidate.sessionUuid}`).emit("matched", {
-      matchUuid,
-      partner: {
-        nickname: state.profile.nickname,
-        gender: state.profile.gender,
-        campus: state.profile.campus,
-        interests: state.profile.interests || [],
-        vibe: state.profile.vibe || "Random"
-      }
-    });
-
-    broadcastStats();
-    return;
+  } catch (error) {
+    console.error("match-status error:", error);
+    return res.status(500).json({ ok: false, error: "Could not check matchmaking status." });
   }
+});
 
-  socket.emit("queue-status", { waiting: true });
-  broadcastStats();
-}
-
-function broadcastStats() {
-  io.emit("stats", {
-    online: sessionToSocket.size,
-    waiting: queue.size
-  });
-}
+app.post("/api/cancel-search", async (req, res) => {
+  try {
+    const sessionUuid = String(req.body?.sessionUuid || "").trim();
+    if (/^[0-9a-f-]{36}$/i.test(sessionUuid)) {
+      await prisma.matchQueue.deleteMany({ where: { sessionUuid } });
+    }
+    return res.json({ ok: true });
+  } catch {
+    return res.json({ ok: true });
+  }
+});
 
 app.get("/api/config", (req, res) => {
   res.json({
@@ -524,7 +658,7 @@ io.use((socket, next) => {
   next();
 });
 
-io.on("connection", (socket) => {
+io.on("connection", async (socket) => {
   const sessionUuid = socket.handshake.auth.sessionUuid;
 
   // one stable room per anonymous session so reconnects don't break delivery
@@ -540,21 +674,25 @@ io.on("connection", (socket) => {
 
   broadcastStats();
 
-  if (activeMatches.has(sessionUuid)) {
-    const matchUuid = activeMatches.get(sessionUuid);
-    const peerSession = [...activeMatches.entries()]
-      .find(([sid, mid]) => mid === matchUuid && sid !== sessionUuid)?.[0];
-    const peerProfile = peerSession ? sessionProfiles.get(peerSession) : null;
+  const persistedMatch = await getActiveMatchRecord(sessionUuid).catch(() => null);
+  if (persistedMatch) {
+    const peerProfile = await getPartnerProfile(persistedMatch, sessionUuid).catch(() => null);
+    const peerSession = persistedMatch.sessionA === sessionUuid ? persistedMatch.sessionB : persistedMatch.sessionA;
+    activeMatches.set(sessionUuid, persistedMatch.matchUuid);
+    activeMatches.set(peerSession, persistedMatch.matchUuid);
+    if (peerProfile) sessionProfiles.set(peerSession, peerProfile);
 
-    if (peerSession && peerProfile) {
+    if (peerProfile) {
       setTimeout(() => {
-        if (socket.connected && activeMatches.get(sessionUuid) === matchUuid) {
+        if (socket.connected) {
           socket.emit("resume-match", {
-            matchUuid,
+            matchUuid: persistedMatch.matchUuid,
             partner: {
               nickname: peerProfile.nickname,
               gender: peerProfile.gender,
-              campus: peerProfile.campus
+              campus: peerProfile.campus,
+              interests: peerProfile.interests || [],
+              vibe: peerProfile.vibe || "Random"
             }
           });
         }
@@ -599,7 +737,7 @@ io.on("connection", (socket) => {
         return done({ ok: false, error: "Create your anonymous profile first." });
       }
 
-      if (activeMatches.has(sessionUuid)) {
+      if (await getActiveMatchRecord(sessionUuid)) {
         return done({ ok: false, error: "You are already in a conversation." });
       }
 
@@ -611,10 +749,10 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("cancel-search", () => {
-    queue.delete(sessionUuid);
+  socket.on("cancel-search", async () => {
+    await prisma.matchQueue.deleteMany({ where: { sessionUuid } }).catch(() => {});
     socket.emit("queue-status", { waiting: false });
-    broadcastStats();
+    await broadcastStats();
   });
 
   socket.on("send-message", async (payload, done = () => {}) => {
@@ -890,7 +1028,7 @@ io.on("connection", (socket) => {
 
   socket.on("next", async (done = () => {}) => {
     try {
-      if (activeMatches.has(sessionUuid)) {
+      if (await getActiveMatchRecord(sessionUuid)) {
         await endMatchForSession(sessionUuid, sessionUuid, "next");
       }
       const state = socketState.get(socket.id);
@@ -907,8 +1045,7 @@ io.on("connection", (socket) => {
 
   socket.on("end-chat", async (done = () => {}) => {
     try {
-      queue.delete(sessionUuid);
-      await endMatchForSession(sessionUuid, sessionUuid, "ended");
+        await endMatchForSession(sessionUuid, sessionUuid, "ended");
       done({ ok: true });
       broadcastStats();
     } catch (error) {
@@ -1011,7 +1148,6 @@ io.on("connection", (socket) => {
   });
 
 socket.on("disconnect", async () => {
-    queue.delete(sessionUuid);
 
     sessionToSocket.delete(sessionUuid);
     socketState.delete(socket.id);

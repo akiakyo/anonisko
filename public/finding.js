@@ -26,6 +26,7 @@
 
   let searchStarted = false;
   let redirecting = false;
+  let pollTimer = null;
 
   function normalizePreference() {
     const stored = String(
@@ -129,16 +130,18 @@
     });
   });
 
-  socket.on("matched", ({ partner }) => {
-    if (redirecting) return;
+  function handleMatched({ partner, matchUuid }) {
+    if (redirecting || !partner) return;
 
     redirecting = true;
     searchStarted = false;
+    if (pollTimer) clearInterval(pollTimer);
 
     sessionStorage.setItem(
       "anonisko-pending-match",
       JSON.stringify({
         partner,
+        matchUuid: matchUuid || null,
         matchedAt: Date.now()
       })
     );
@@ -146,7 +149,6 @@
     clearInterval(phraseTimer);
     document.body.classList.add("match-found");
 
-    // Once actually matched, replacing the full heading is intentional.
     if (title) title.textContent = "found someone.";
     if (text) text.textContent = "opening your conversation...";
 
@@ -167,7 +169,29 @@
     setTimeout(() => {
       window.location.replace("/conversation");
     }, 1450);
-  });
+  }
+
+  socket.on("matched", handleMatched);
+
+  async function pollMatchStatus() {
+    if (redirecting) return;
+    try {
+      const response = await fetch("/api/match-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionUuid })
+      });
+      if (!response.ok) return;
+      const result = await response.json();
+      if (result?.matched) handleMatched(result);
+    } catch {
+      // Socket.IO may reconnect between serverless instances. Polling Neon-backed
+      // status keeps matchmaking reliable even during a brief reconnect.
+    }
+  }
+
+  pollTimer = setInterval(pollMatchStatus, 1800);
+  setTimeout(pollMatchStatus, 500);
 
   cancelButton?.addEventListener("click", () => {
     cancelButton.disabled = true;
@@ -175,6 +199,14 @@
 
     document.body.classList.add("finding-canceling");
     socket.emit("cancel-search");
+    if (pollTimer) clearInterval(pollTimer);
+
+    fetch("/api/cancel-search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionUuid }),
+      keepalive: true
+    }).catch(() => {});
 
     setTimeout(() => {
       clearInterval(phraseTimer);
