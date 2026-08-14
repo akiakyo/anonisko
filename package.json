@@ -12,7 +12,9 @@
     "db:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "db:setup": "prisma generate && prisma migrate deploy"
+    "db:setup": "prisma generate && prisma migrate deploy",
+    "postinstall": "prisma generate",
+    "vercel-build": "prisma generate"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
@@ -26,5 +28,8 @@
     "socket.io": "^4.8.1",
     "uuid": "^11.0.3"
   },
-  "type": "module"
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  }
 }

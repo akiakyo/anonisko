@@ -8,7 +8,8 @@ import rateLimit from "express-rate-limit";
 import http from "http";
 import { fileURLToPath } from "url";
 import { Server } from "socket.io";
-import { PrismaClient } from "@prisma/client";
+import prismaClientPackage from "@prisma/client";
+const { PrismaClient } = prismaClientPackage;
 import { PrismaPg } from "@prisma/adapter-pg";
 import { v4 as uuidv4 } from "uuid";
 

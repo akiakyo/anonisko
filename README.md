@@ -770,3 +770,15 @@ Production start:
 - Repaired malformed HTML `href` / `src` attributes created by the previous minification pass.
 - `npm run start:production` is Windows-compatible and runs `node server.js`.
 - No frontend minification is performed in this recovery build.
+
+
+## Vercel + Neon deployment
+
+This build generates Prisma Client during dependency installation and during the Vercel build.
+
+1. Do not upload `.env` to GitHub.
+2. In Vercel, add `DATABASE_URL` and `SESSION_SALT` as environment variables.
+3. Deploy from GitHub. Vercel will run `prisma generate` automatically.
+4. Run database migrations once from your local project with `npm run db:setup` (or use another trusted migration workflow).
+
+For local development, copy `.env.example` to `.env`, then add your Neon connection string.
