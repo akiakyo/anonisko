@@ -225,7 +225,7 @@ app.post("/api/end-chat-beacon", async (req, res) => {
 });
 
 app.use((req, res, next) => {
-  res.setHeader("X-AnonIsko-Build", "3.6.33");
+  res.setHeader("X-AnonIsko-Build", "3.6.40");
   // development: always serve fresh frontend files
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma", "no-cache");

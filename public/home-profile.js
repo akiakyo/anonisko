@@ -26,6 +26,7 @@
   const aboutMe = document.getElementById("aboutMe");
   const aboutMeCount = document.getElementById("aboutMeCount");
   const formMessage = document.getElementById("formMessage");
+  const genderButtons = [...document.querySelectorAll("[data-gender]")];
   const preferenceButtons = [...document.querySelectorAll("[data-preference]")];
   const preferenceText = document.getElementById("matchPreferenceText");
   const findButton = document.getElementById("findSomeoneButton");
@@ -37,6 +38,7 @@
 
   let config = null;
   let selectedVibe = "";
+  let selectedGender = "";
   let selectedPreference = "";
   const selectedInterests = new Set();
 
@@ -49,6 +51,23 @@
     });
     setTimeout(() => element.classList.remove("is-revealing-stage"), 420);
   }
+
+  function setGender(value) {
+    selectedGender = ["male", "female"].includes(value) ? value : "";
+
+    genderButtons.forEach((button) => {
+      const active = button.dataset.gender === selectedGender;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+  }
+
+  genderButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      setGender(button.dataset.gender || "");
+      formMessage.textContent = "";
+    });
+  });
 
   function updatePreferenceText() {
     if (!preferenceText) return;
@@ -195,6 +214,9 @@
       nicknameInput.value = saved.nickname || "";
       campusSelect.value = saved.campus || "";
       selectedVibe = config.vibes?.includes(saved.vibe) ? saved.vibe : "";
+      selectedGender = saved.profileVersion === 2 && ["male", "female"].includes(saved.gender)
+        ? saved.gender
+        : "";
       selectedPreference = ["male", "female", "anyone"].includes(saved.preference)
         ? saved.preference
         : "";
@@ -209,6 +231,7 @@
 
       renderVibes(config.vibes || []);
       renderInterests(config.interests || []);
+      setGender(selectedGender);
 
       if (selectedPreference) {
         setPreference(selectedPreference);
@@ -233,8 +256,13 @@
       return false;
     }
 
+    if (!selectedGender) {
+      formMessage.textContent = "Choose whether you are Male or Female.";
+      return false;
+    }
+
     if (!selectedPreference) {
-      formMessage.textContent = "Choose Male, Female, or Any.";
+      formMessage.textContent = "Choose Male, Female, or Any under Match with.";
       return false;
     }
 
@@ -258,13 +286,11 @@
 
     if (!validateForm()) return;
 
-    // The Home flow intentionally asks only who the user wants to match with.
-    // The backend still requires a valid profile gender value, so use a neutral
-    // compatibility value accepted by the current server profile validator.
     const profile = {
+      profileVersion: 2,
       nickname: nicknameInput.value.trim(),
       aboutMe: aboutMe.value.trim().slice(0, 120),
-      gender: "male",
+      gender: selectedGender,
       campus: campusSelect.value,
       preference: selectedPreference,
       vibe: selectedVibe,
