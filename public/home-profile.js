@@ -26,7 +26,6 @@
   const aboutMe = document.getElementById("aboutMe");
   const aboutMeCount = document.getElementById("aboutMeCount");
   const formMessage = document.getElementById("formMessage");
-  const genderButtons = [...document.querySelectorAll("[data-gender]")];
   const preferenceButtons = [...document.querySelectorAll("[data-preference]")];
   const preferenceText = document.getElementById("matchPreferenceText");
   const findButton = document.getElementById("findSomeoneButton");
@@ -38,7 +37,6 @@
 
   let config = null;
   let selectedVibe = "";
-  let selectedGender = "";
   let selectedPreference = "";
   const selectedInterests = new Set();
 
@@ -51,23 +49,6 @@
     });
     setTimeout(() => element.classList.remove("is-revealing-stage"), 420);
   }
-
-  function setGender(value) {
-    selectedGender = ["male", "female"].includes(value) ? value : "";
-
-    genderButtons.forEach((button) => {
-      const active = button.dataset.gender === selectedGender;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-pressed", String(active));
-    });
-  }
-
-  genderButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      setGender(button.dataset.gender || "");
-      formMessage.textContent = "";
-    });
-  });
 
   function updatePreferenceText() {
     if (!preferenceText) return;
@@ -214,9 +195,6 @@
       nicknameInput.value = saved.nickname || "";
       campusSelect.value = saved.campus || "";
       selectedVibe = config.vibes?.includes(saved.vibe) ? saved.vibe : "";
-      selectedGender = saved.profileVersion === 2 && ["male", "female"].includes(saved.gender)
-        ? saved.gender
-        : "";
       selectedPreference = ["male", "female", "anyone"].includes(saved.preference)
         ? saved.preference
         : "";
@@ -231,7 +209,6 @@
 
       renderVibes(config.vibes || []);
       renderInterests(config.interests || []);
-      setGender(selectedGender);
 
       if (selectedPreference) {
         setPreference(selectedPreference);
@@ -253,11 +230,6 @@
     if (nickname.length < 3 || nickname.length > 24) {
       formMessage.textContent = "Nickname must be 3 to 24 characters.";
       nicknameInput.focus();
-      return false;
-    }
-
-    if (!selectedGender) {
-      formMessage.textContent = "Choose whether you are Male or Female.";
       return false;
     }
 
@@ -287,10 +259,9 @@
     if (!validateForm()) return;
 
     const profile = {
-      profileVersion: 2,
+      profileVersion: 3,
       nickname: nicknameInput.value.trim(),
       aboutMe: aboutMe.value.trim().slice(0, 120),
-      gender: selectedGender,
       campus: campusSelect.value,
       preference: selectedPreference,
       vibe: selectedVibe,

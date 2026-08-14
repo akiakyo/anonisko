@@ -1201,7 +1201,7 @@ startConversationTimedFeatures();
 resetSayHiPlaceholder();
 messageInput.disabled = false;
 partnerNickname.textContent = partner.nickname;
-partnerDetails.textContent = `${partnerLabel(partner.gender)} · ${partner.campus}`;
+partnerDetails.textContent = partner.campus || "Anonymous student";
 renderPartnerExtras(partner);
 
 const context = [];

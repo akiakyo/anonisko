@@ -294,8 +294,6 @@ if (saved) {
 nicknameInput.value = saved.nickname || "";
 campusSelect.value = saved.campus || "";
 preferenceSelect.value = saved.preference || "anyone";
-const genderInput = document.querySelector(`input[name="gender"][value="${saved.gender}"]`);
-if (genderInput) genderInput.checked = true;
 }
 }
 async function saveProfileAndSearch(profile) {
@@ -311,10 +309,8 @@ socket.emit("find-match", (matchResult) => resolve(matchResult));
 profileForm.addEventListener("submit", async (event) => {
 event.preventDefault();
 setFormMessage("");
-const gender = profileForm.querySelector('input[name="gender"]:checked')?.value;
 const profile = {
 nickname: nicknameInput.value.trim(),
-gender,
 campus: campusSelect.value,
 preference: preferenceSelect.value
 };
@@ -322,7 +318,7 @@ if (profile.nickname.length < 3) {
 setFormMessage("Nickname must be at least 3 characters.");
 return;
 }
-if (!profile.gender || !profile.campus) {
+if (!profile.campus) {
 setFormMessage("Please complete all required fields.");
 return;
 }
@@ -470,7 +466,7 @@ socket.on("matched", ({ partner }) => {
 searching = false;
 currentPartner = partner;
 partnerNickname.textContent = partner.nickname;
-partnerDetails.textContent = `${partnerLabel(partner.gender)} · ${partner.campus}`;
+partnerDetails.textContent = partner.campus || "Anonymous student";
 clearChat();
 addMessage(
 `You are now connected with ${partner.nickname}. Stay respectful and avoid sharing sensitive personal information.`,

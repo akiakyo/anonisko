@@ -304,7 +304,6 @@ function isValidProfile(profile) {
     profile &&
     typeof profile === "object" &&
     sanitizeNickname(profile.nickname).length >= 3 &&
-    ["male", "female"].includes(profile.gender) &&
     ["anyone", "male", "female"].includes(profile.preference) &&
     CAMPUS_LIST.includes(profile.campus) &&
     Array.isArray(profile.interests) &&
@@ -315,9 +314,13 @@ function isValidProfile(profile) {
 }
 
 function compatible(a, b) {
-  const aWantsB = a.preference === "anyone" || a.preference === b.gender;
-  const bWantsA = b.preference === "anyone" || b.preference === a.gender;
-  return aWantsB && bWantsA;
+  // The public profile only asks who the user wants to match with.
+  // Treat Male/Female as matchmaking pools; Any can match either pool.
+  return (
+    a.preference === "anyone" ||
+    b.preference === "anyone" ||
+    a.preference === b.preference
+  );
 }
 
 async function isBlockedEitherWay(a, b) {
@@ -336,7 +339,7 @@ async function isBlockedEitherWay(a, b) {
 async function upsertSession(sessionUuid, profile) {
   const data = {
     nickname: sanitizeNickname(profile.nickname),
-    gender: profile.gender,
+    gender: profile.preference === "female" ? "female" : "male",
     campus: profile.campus,
     preference: profile.preference,
     aboutMe: profile.aboutMe || null,
@@ -372,7 +375,7 @@ async function getPartnerProfile(match, sessionUuid) {
   return {
     sessionUuid: partnerSession,
     nickname: profile.nickname,
-    gender: profile.gender,
+    gender: profile.preference === "female" ? "female" : "male",
     campus: profile.campus,
     interests: profile.interests || [],
     vibe: profile.vibe || "Random"
@@ -532,7 +535,6 @@ async function attemptMatch(socket) {
     matchUuid: match.matchUuid,
     partner: {
       nickname: partner.nickname,
-      gender: partner.gender,
       campus: partner.campus,
       interests: partner.interests,
       vibe: partner.vibe
@@ -545,7 +547,6 @@ async function attemptMatch(socket) {
     matchUuid: match.matchUuid,
     partner: {
       nickname: state.profile.nickname,
-      gender: state.profile.gender,
       campus: state.profile.campus,
       interests: state.profile.interests || [],
       vibe: state.profile.vibe || "Random"
@@ -590,8 +591,7 @@ app.post("/api/match-status", async (req, res) => {
       matchUuid: match.matchUuid,
       partner: {
         nickname: partner.nickname,
-        gender: partner.gender,
-        campus: partner.campus,
+          campus: partner.campus,
         interests: partner.interests,
         vibe: partner.vibe
       }
@@ -689,7 +689,6 @@ io.on("connection", async (socket) => {
             matchUuid: persistedMatch.matchUuid,
             partner: {
               nickname: peerProfile.nickname,
-              gender: peerProfile.gender,
               campus: peerProfile.campus,
               interests: peerProfile.interests || [],
               vibe: peerProfile.vibe || "Random"
@@ -707,7 +706,6 @@ io.on("connection", async (socket) => {
       const cleaned = {
         nickname: sanitizeNickname(profile?.nickname),
         aboutMe: String(profile?.aboutMe || "").trim().slice(0, 120),
-        gender: profile?.gender,
         campus: profile?.campus,
         preference: profile?.preference || "anyone",
         interests: sanitizeInterests(profile?.interests),
