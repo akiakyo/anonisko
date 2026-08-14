@@ -1,3 +1,19 @@
+# Neon + Prisma setup (current)
+
+This build has been migrated from local MySQL/XAMPP to **Neon PostgreSQL + Prisma**.
+
+1. Copy `.env.example` to `.env`.
+2. Put your Neon pooled connection string in `DATABASE_URL`.
+3. Run `npm install`.
+4. Run `npx prisma migrate deploy` (or `npx prisma migrate dev --name init` for local development).
+5. Run `npm start`.
+
+Do not commit `.env`; it is ignored by Git. The legacy MySQL `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME` variables are no longer used.
+
+> **Vercel note:** Neon works with Vercel, but this project also uses a long-lived Socket.IO server. Vercel Functions are not a persistent WebSocket host, so deploy the Node/Socket.IO server to a WebSocket-capable host (for example Railway/Render/Fly.io) or replace Socket.IO with a managed realtime service. You can still use Neon as the database.
+
+---
+
 # AnonIsko
 
 AnonIsko is a text-only anonymous conversation platform designed for PUP students.
@@ -21,14 +37,14 @@ AnonIsko is a text-only anonymous conversation platform designed for PUP student
 ## Requirements
 
 - Node.js 20+
-- MySQL 8+ or MariaDB 10.5+
+- Neon PostgreSQL (or another PostgreSQL database)
 
 ## Setup
 
-1. Create a database named `anonisko`.
-2. Import `schema.sql`.
-3. Copy `.env.example` to `.env`.
-4. Update your MySQL credentials.
+1. Create/connect your Neon database.
+2. Copy `.env.example` to `.env`.
+3. Set `DATABASE_URL` to your Neon PostgreSQL connection string.
+4. Run `npx prisma migrate deploy` to create the tables.
 5. Install dependencies:
 
 ```bash
@@ -731,3 +747,26 @@ Added only:
   - Any -> `Finding an Iska or Isko...`
 - Prevents older code from overwriting the correct wording after page load.
 - `schema.sql` unchanged.
+
+
+## v3.6.31 Production hardening
+
+- Frontend JS/CSS is served from `public/dist/` in a compressed/minified form.
+- No source maps are shipped.
+- Backend files and database logic remain outside `public/`.
+- `.env` is ignored; use `.env.example` as a template.
+- Express `x-powered-by` is disabled and basic security headers are enabled.
+
+Important: frontend code can never be completely hidden because the browser must download it. Keep secrets, API keys, passwords, tokens, moderation logic, and database credentials on the server only.
+
+Production start:
+`npm run start:production`
+
+
+## v3.6.32 restore fix
+
+- Restored all pages to the original `public/styles.css` and original frontend JavaScript files.
+- Removed the broken `public/dist/` production assets.
+- Repaired malformed HTML `href` / `src` attributes created by the previous minification pass.
+- `npm run start:production` is Windows-compatible and runs `node server.js`.
+- No frontend minification is performed in this recovery build.

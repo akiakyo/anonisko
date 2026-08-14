@@ -1,6 +1,3 @@
--- AnonIsko PostgreSQL / Neon schema
--- Prisma migrations are the preferred way to create/update these tables.
-
 DO $$ BEGIN
   CREATE TYPE "Gender" AS ENUM ('male', 'female');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;

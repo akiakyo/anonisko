@@ -1,16 +1,32 @@
-require("dotenv").config();
+import "dotenv/config";
 
-const path = require("path");
-const crypto = require("crypto");
-const express = require("express");
-const helmet = require("helmet");
-const rateLimit = require("express-rate-limit");
-const http = require("http");
-const { Server } = require("socket.io");
-const mysql = require("mysql2/promise");
-const { v4: uuidv4 } = require("uuid");
+import path from "path";
+import crypto from "crypto";
+import express from "express";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import http from "http";
+import { fileURLToPath } from "url";
+import { Server } from "socket.io";
+import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { v4 as uuidv4 } from "uuid";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
+
+// v3.6.31 production hardening
+app.disable("x-powered-by");
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("Permissions-Policy", "camera=(), geolocation=()");
+  next();
+});
+
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
 const server = http.createServer(app);
@@ -22,16 +38,12 @@ const io = new Server(server, {
 const PORT = Number(process.env.PORT || 3000);
 const SESSION_SALT = process.env.SESSION_SALT || "change-me";
 
-const pool = mysql.createPool({
-  host: process.env.DB_HOST || "127.0.0.1",
-  port: Number(process.env.DB_PORT || 3306),
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "anonisko",
-  charset: "utf8mb4",
-  connectionLimit: 10,
-  waitForConnections: true
-});
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL is required. Add your Neon PostgreSQL connection string to .env.");
+}
+
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
 
 const CAMPUS_LIST = [
   'Other school / Rather not say',
@@ -213,7 +225,7 @@ app.post("/api/end-chat-beacon", async (req, res) => {
 });
 
 app.use((req, res, next) => {
-  res.setHeader("X-AnonIsko-Build", "3.6.30");
+  res.setHeader("X-AnonIsko-Build", "3.6.32");
   // development: always serve fresh frontend files
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma", "no-cache");
@@ -309,36 +321,35 @@ function compatible(a, b) {
 }
 
 async function isBlockedEitherWay(a, b) {
-  const [rows] = await pool.execute(
-    `SELECT id
-       FROM blocks
-      WHERE (blocker_session_uuid = ? AND blocked_session_uuid = ?)
-         OR (blocker_session_uuid = ? AND blocked_session_uuid = ?)
-      LIMIT 1`,
-    [a, b, b, a]
-  );
-  return rows.length > 0;
+  const block = await prisma.block.findFirst({
+    where: {
+      OR: [
+        { blockerSessionUuid: a, blockedSessionUuid: b },
+        { blockerSessionUuid: b, blockedSessionUuid: a }
+      ]
+    },
+    select: { id: true }
+  });
+  return Boolean(block);
 }
 
 async function upsertSession(sessionUuid, profile) {
-  await pool.execute(
-    `INSERT INTO anonymous_sessions
-      (session_uuid, nickname, gender, campus, preference, last_seen_at)
-     VALUES (?, ?, ?, ?, ?, NOW())
-     ON DUPLICATE KEY UPDATE
-       nickname = VALUES(nickname),
-       gender = VALUES(gender),
-       campus = VALUES(campus),
-       preference = VALUES(preference),
-       last_seen_at = NOW()`,
-    [
-      sessionUuid,
-      sanitizeNickname(profile.nickname),
-      profile.gender,
-      profile.campus,
-      profile.preference
-    ]
-  );
+  const data = {
+    nickname: sanitizeNickname(profile.nickname),
+    gender: profile.gender,
+    campus: profile.campus,
+    preference: profile.preference,
+    aboutMe: profile.aboutMe || null,
+    interests: profile.interests || [],
+    vibe: profile.vibe || null,
+    lastSeenAt: new Date()
+  };
+
+  await prisma.anonymousSession.upsert({
+    where: { sessionUuid },
+    create: { sessionUuid, ...data },
+    update: data
+  });
 }
 
 async function endMatchForSession(sessionUuid, endedBy, reason = "ended") {
@@ -355,12 +366,10 @@ async function endMatchForSession(sessionUuid, endedBy, reason = "ended") {
     if (key.startsWith(`${matchUuid}:`)) reactionState.delete(key);
   }
 
-  await pool.execute(
-    `UPDATE matches
-        SET ended_by = ?, ended_at = NOW()
-      WHERE match_uuid = ? AND ended_at IS NULL`,
-    [endedBy || sessionUuid, matchUuid]
-  );
+  await prisma.match.updateMany({
+    where: { matchUuid, endedAt: null },
+    data: { endedBy: endedBy || sessionUuid, endedAt: new Date() }
+  });
 
   // emit through session rooms so the event survives socket reconnects
   io.to(`session:${sessionUuid}`).emit("chat-ended", {
@@ -425,11 +434,13 @@ async function attemptMatch(socket) {
     sessionProfiles.set(state.sessionUuid, state.profile);
     sessionProfiles.set(candidate.sessionUuid, candidate.profile);
 
-    await pool.execute(
-      `INSERT INTO matches (match_uuid, session_a, session_b)
-       VALUES (?, ?, ?)`,
-      [matchUuid, state.sessionUuid, candidate.sessionUuid]
-    );
+    await prisma.match.create({
+      data: {
+        matchUuid,
+        sessionA: state.sessionUuid,
+        sessionB: candidate.sessionUuid
+      }
+    });
 
     socket.emit("matched", {
       matchUuid,
@@ -481,7 +492,7 @@ app.get("/api/config", (req, res) => {
 
 app.get("/api/health", async (req, res) => {
   try {
-    await pool.query("SELECT 1");
+    await prisma.$queryRawUnsafe("SELECT 1");
     res.json({ ok: true });
   } catch {
     res.status(503).json({ ok: false });
@@ -626,11 +637,13 @@ io.on("connection", (socket) => {
       state.lastMessageAt = now;
       state.messageBurst.push(now);
 
-      await pool.execute(
-        `INSERT INTO messages (match_uuid, sender_session_uuid, message_text)
-         VALUES (?, ?, ?)`,
-        [matchUuid, sessionUuid, text]
-      );
+      await prisma.message.create({
+        data: {
+          matchUuid,
+          senderSessionUuid: sessionUuid,
+          messageText: text
+        }
+      });
 
       const peerSession = [...activeMatches.entries()]
         .find(([sid, mid]) => mid === matchUuid && sid !== sessionUuid)?.[0];
@@ -931,12 +944,15 @@ io.on("connection", (socket) => {
       const reason = allowedReasons.includes(payload?.reason) ? payload.reason : "other";
       const details = String(payload?.details || "").trim().slice(0, 500);
 
-      await pool.execute(
-        `INSERT INTO reports
-          (reporter_session_uuid, reported_session_uuid, match_uuid, reason, details)
-         VALUES (?, ?, ?, ?, ?)`,
-        [sessionUuid, peerSession, matchUuid, reason, details || null]
-      );
+      await prisma.report.create({
+        data: {
+          reporterSessionUuid: sessionUuid,
+          reportedSessionUuid: peerSession,
+          matchUuid,
+          reason,
+          details: details || null
+        }
+      });
 
       done({ ok: true });
     } catch (error) {
@@ -961,11 +977,19 @@ io.on("connection", (socket) => {
         return done({ ok: false, error: "Partner not found." });
       }
 
-      await pool.execute(
-        `INSERT IGNORE INTO blocks (blocker_session_uuid, blocked_session_uuid)
-         VALUES (?, ?)`,
-        [sessionUuid, peerSession]
-      );
+      await prisma.block.upsert({
+        where: {
+          blockerSessionUuid_blockedSessionUuid: {
+            blockerSessionUuid: sessionUuid,
+            blockedSessionUuid: peerSession
+          }
+        },
+        create: {
+          blockerSessionUuid: sessionUuid,
+          blockedSessionUuid: peerSession
+        },
+        update: {}
+      });
 
       await endMatchForSession(sessionUuid, sessionUuid, "blocked");
       done({ ok: true });
@@ -994,10 +1018,10 @@ socket.on("disconnect", async () => {
     // a disconnect does not end the conversation.
     // the same anonymous session can reconnect later and resume the match.
     try {
-      await pool.execute(
-        `UPDATE anonymous_sessions SET last_seen_at = NOW() WHERE session_uuid = ?`,
-        [sessionUuid]
-      );
+      await prisma.anonymousSession.updateMany({
+        where: { sessionUuid },
+        data: { lastSeenAt: new Date() }
+      });
     } catch (error) {
       console.error(error);
     }
@@ -1005,6 +1029,16 @@ socket.on("disconnect", async () => {
     broadcastStats();
   });
 });
+
+async function shutdown(signal) {
+  console.log(`${signal} received. Closing database connections...`);
+  await prisma.$disconnect().catch(() => {});
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 5000).unref();
+}
+
+process.once("SIGINT", () => shutdown("SIGINT"));
+process.once("SIGTERM", () => shutdown("SIGTERM"));
 
 server.listen(PORT, () => {
   console.log(`AnonIsko running at http://localhost:${PORT}`);

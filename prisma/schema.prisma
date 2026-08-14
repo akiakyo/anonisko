@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Gender {
+  male
+  female
+}
+
+enum MatchPreference {
+  anyone
+  male
+  female
+}
+
+enum ReportReason {
+  harassment
+  sexual_content
+  spam
+  hate
+  personal_info
+  other
+}
+
+model AnonymousSession {
+  id          BigInt          @id @default(autoincrement())
+  sessionUuid String          @unique @map("session_uuid") @db.Uuid
+  nickname    String          @db.VarChar(24)
+  gender      Gender
+  campus      String          @db.VarChar(100)
+  preference  MatchPreference @default(anyone)
+  aboutMe     String?         @map("about_me") @db.VarChar(120)
+  interests   String[]        @default([])
+  vibe        String?         @db.VarChar(30)
+  lastSeenAt  DateTime        @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([lastSeenAt], map: "idx_anonymous_sessions_last_seen")
+  @@map("anonymous_sessions")
+}
+
+model Match {
+  id        BigInt    @id @default(autoincrement())
+  matchUuid String    @unique @map("match_uuid") @db.Uuid
+  sessionA  String    @map("session_a") @db.Uuid
+  sessionB  String    @map("session_b") @db.Uuid
+  endedBy   String?   @map("ended_by") @db.Uuid
+  endedAt   DateTime? @map("ended_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([sessionA], map: "idx_matches_session_a")
+  @@index([sessionB], map: "idx_matches_session_b")
+  @@index([createdAt], map: "idx_matches_created_at")
+  @@map("matches")
+}
+
+model Message {
+  id                BigInt   @id @default(autoincrement())
+  matchUuid         String   @map("match_uuid") @db.Uuid
+  senderSessionUuid String   @map("sender_session_uuid") @db.Uuid
+  messageText       String   @map("message_text") @db.VarChar(1000)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([matchUuid, createdAt], map: "idx_messages_match_created")
+  @@index([senderSessionUuid], map: "idx_messages_sender")
+  @@map("messages")
+}
+
+model Report {
+  id                  BigInt       @id @default(autoincrement())
+  reporterSessionUuid String       @map("reporter_session_uuid") @db.Uuid
+  reportedSessionUuid String       @map("reported_session_uuid") @db.Uuid
+  matchUuid           String?      @map("match_uuid") @db.Uuid
+  reason              ReportReason
+  details             String?      @db.VarChar(500)
+  createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([reportedSessionUuid], map: "idx_reports_reported")
+  @@index([createdAt], map: "idx_reports_created_at")
+  @@map("reports")
+}
+
+model Block {
+  id                 BigInt   @id @default(autoincrement())
+  blockerSessionUuid String   @map("blocker_session_uuid") @db.Uuid
+  blockedSessionUuid String   @map("blocked_session_uuid") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([blockerSessionUuid, blockedSessionUuid], map: "uq_blocks_pair")
+  @@index([blockedSessionUuid], map: "idx_blocks_blocked")
+  @@map("blocks")
+}
