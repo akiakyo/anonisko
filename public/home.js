@@ -23,7 +23,6 @@ const openButton = document.getElementById("openChatModal");
 const closeButton = document.getElementById("closeHomeChatModal");
 if (!modal || !openButton || !closeButton) return;
 openButton.addEventListener("click", () => {
-modal.classList.remove("modal-pop-in");
 modal.showModal();
 document.body.classList.add("modal-open");
 requestAnimationFrame(() => {
@@ -48,19 +47,46 @@ if (isBackdrop) modal.close();
 })();
 (() => {
 const intro = document.getElementById("siteIntro");
-if (!intro) return;
-function runHomeIntro() {
-intro.classList.remove("intro-complete");
-document.body.classList.add("home-entering");
-requestAnimationFrame(() => {
-intro.classList.add("intro-active");
-});
-setTimeout(() => {
-intro.classList.add("intro-complete");
-document.body.classList.remove("home-entering");
-}, 1450);
+if (!intro) {
+  document.body.classList.remove("home-entering");
+  return;
 }
-window.addEventListener("pageshow", () => {
-runHomeIntro();
+
+let introTimer = null;
+
+function finishHomeIntro() {
+  clearTimeout(introTimer);
+  intro.classList.remove("intro-active");
+  intro.classList.add("intro-complete");
+  document.body.classList.remove("home-entering");
+}
+
+function runHomeIntro() {
+  clearTimeout(introTimer);
+
+  // Always reset old/bfcache animation state first.
+  document.body.classList.remove("home-entering");
+  intro.classList.remove("intro-active", "intro-complete");
+
+  // The page itself stays fully visible; only the logo overlay animates.
+  requestAnimationFrame(() => {
+    intro.classList.add("intro-active");
+  });
+
+  introTimer = setTimeout(finishHomeIntro, 1450);
+}
+
+// Hard fail-safe: never allow stale intro state to dim or block the page.
+window.setTimeout(() => {
+  document.body.classList.remove("home-entering");
+  if (intro.classList.contains("intro-active")) finishHomeIntro();
+}, 1900);
+
+window.addEventListener("pageshow", runHomeIntro);
+window.addEventListener("pagehide", () => {
+  document.body.classList.remove("home-entering");
+  intro.classList.remove("intro-active");
 });
 })();
+
+

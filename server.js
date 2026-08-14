@@ -34,6 +34,7 @@ const pool = mysql.createPool({
 });
 
 const CAMPUS_LIST = [
+  'Other school / Rather not say',
   "PUP Main Campus - Sta. Mesa",
   "PUP Taguig",
   "PUP Quezon City",
@@ -89,10 +90,42 @@ const ICEBREAKERS = [
   "What is one place in the Philippines you want to visit?"
 ];
 
+const ACTIVITY_PROMPTS = {
+  icebreaker: ICEBREAKERS,
+  would_you_rather: [
+    "Would you rather have unlimited free food on campus or unlimited free transportation?",
+    "Would you rather always be 10 minutes early or 20 minutes late?",
+    "Would you rather lose your phone for a week or your favorite app for a month?",
+    "Would you rather study all night or wake up at 4 AM to study?",
+    "Would you rather travel anywhere for free or eat anywhere for free?"
+  ],
+  this_or_that: [
+    "Coffee or milk tea?",
+    "Morning classes or night classes?",
+    "Group project or solo project?",
+    "Beach or mountains?",
+    "Chatting or voice messages?",
+    "Gaming or movies?",
+    "Stay in or go out?"
+  ],
+  quick_question: [
+    "What is one thing you are looking forward to this week?",
+    "What is your current favorite song?",
+    "What is the funniest thing that happened to you in school?",
+    "What is a skill you wish you had?",
+    "What is your comfort food?",
+    "What is one place you want to visit?"
+  ]
+};
+
+
 
 const queue = new Map();
 const socketState = new Map();
 const activeMatches = new Map();
+const conversationFeedback = new Map();
+const reactionState = new Map();
+const ALLOWED_REACTIONS = new Set(["❤️", "😆", "😮", "😢", "😭", "😡", "👍"]);
 const sessionToSocket = new Map();
 const sessionProfiles = new Map();
 
@@ -115,14 +148,17 @@ app.use(helmet({
   frameguard: { action: "deny" }
 }));
 app.use(express.json({ limit: "20kb" }));
+app.use(express.urlencoded({ extended: false, limit: "10kb" }));
 
-app.use(rateLimit({
+const apiLimiter = rateLimit({
   windowMs: 60_000,
-  max: 120,
+  max: 300,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests. Please slow down." }
-}));
+});
+
+app.use("/api", apiLimiter);
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "home.html"));
@@ -156,8 +192,28 @@ app.get("/finding", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "finding.html"));
 });
 
+app.post("/api/end-chat-beacon", async (req, res) => {
+  try {
+    const sessionUuid = String(req.body?.sessionUuid || "").trim().slice(0, 80);
+    if (!sessionUuid) return res.status(204).end();
+
+    queue.delete(sessionUuid);
+
+    if (activeMatches.has(sessionUuid)) {
+      await endMatchForSession(sessionUuid, sessionUuid, "partner-left");
+      broadcastStats();
+    }
+
+    res.status(204).end();
+  } catch (error) {
+    console.error("end-chat beacon error:", error);
+    // unload requests should not get stuck retrying because of an error response
+    res.status(204).end();
+  }
+});
+
 app.use((req, res, next) => {
-  res.setHeader("X-AnonIsko-Build", "3.1");
+  res.setHeader("X-AnonIsko-Build", "3.6.30");
   // development: always serve fresh frontend files
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma", "no-cache");
@@ -295,6 +351,10 @@ async function endMatchForSession(sessionUuid, endedBy, reason = "ended") {
   activeMatches.delete(sessionUuid);
   if (peerSession) activeMatches.delete(peerSession);
 
+  for (const key of reactionState.keys()) {
+    if (key.startsWith(`${matchUuid}:`)) reactionState.delete(key);
+  }
+
   await pool.execute(
     `UPDATE matches
         SET ended_by = ?, ended_at = NOW()
@@ -343,12 +403,11 @@ async function attemptMatch(socket) {
 
     const sharedInterests = (state.profile.interests || [])
       .filter((interest) => (candidate.profile.interests || []).includes(interest)).length;
-    const vibeMatch = state.profile.vibe === candidate.profile.vibe ? 2 : 0;
     const waitBonus = Math.min(2, Math.floor((Date.now() - candidate.joinedAt) / 15000));
 
     candidates.push({
       candidate,
-      score: sharedInterests * 3 + vibeMatch + waitBonus
+      score: sharedInterests * 3 + waitBonus
     });
   }
 
@@ -497,6 +556,7 @@ io.on("connection", (socket) => {
     try {
       const cleaned = {
         nickname: sanitizeNickname(profile?.nickname),
+        aboutMe: String(profile?.aboutMe || "").trim().slice(0, 120),
         gender: profile?.gender,
         campus: profile?.campus,
         preference: profile?.preference || "anyone",
@@ -598,6 +658,62 @@ io.on("connection", (socket) => {
 
 
 
+
+  socket.on("react-message", (payload, done = () => {}) => {
+    try {
+      const matchUuid = activeMatches.get(sessionUuid);
+      if (!matchUuid) return done({ ok: false, error: "No active conversation." });
+
+      const messageId = String(payload?.messageId || "").slice(0, 80);
+      const reaction = String(payload?.reaction || "").slice(0, 20);
+
+      if (!messageId || !/^[A-Za-z0-9_-]+$/.test(messageId)) {
+        return done({ ok: false, error: "Invalid message." });
+      }
+
+      if (!ALLOWED_REACTIONS.has(reaction)) {
+        return done({ ok: false, error: "Invalid reaction." });
+      }
+
+      const key = `${matchUuid}:${messageId}`;
+      const reactions = reactionState.get(key) || new Map();
+      const previous = reactions.get(sessionUuid);
+
+      if (previous === reaction) {
+        reactions.delete(sessionUuid);
+      } else {
+        reactions.set(sessionUuid, reaction);
+      }
+
+      if (reactions.size) reactionState.set(key, reactions);
+      else reactionState.delete(key);
+
+      const counts = {};
+      for (const value of reactions.values()) {
+        counts[value] = (counts[value] || 0) + 1;
+      }
+
+      const peerSession = [...activeMatches.entries()]
+        .find(([sid, mid]) => mid === matchUuid && sid !== sessionUuid)?.[0];
+
+      const emitUpdate = (targetSession) => {
+        if (!targetSession) return;
+        io.to(`session:${targetSession}`).emit("reaction-update", {
+          messageId,
+          reactions: counts,
+          mineReaction: reactions.get(targetSession) || null
+        });
+      };
+
+      emitUpdate(sessionUuid);
+      emitUpdate(peerSession);
+      done({ ok: true });
+    } catch (error) {
+      console.error("reaction error:", error);
+      done({ ok: false, error: "Reaction could not be updated." });
+    }
+  });
+
   socket.on("ack-message", (payload) => {
     const matchUuid = activeMatches.get(sessionUuid);
     if (!matchUuid) return;
@@ -672,6 +788,7 @@ io.on("connection", (socket) => {
       }
 
       const event = {
+        id: uuidv4(),
         audio: audioBuffer,
         mimeType,
         duration,
@@ -689,6 +806,38 @@ io.on("connection", (socket) => {
   });
 
 
+  socket.on("request-activity", (payload, done = () => {}) => {
+    const matchUuid = activeMatches.get(sessionUuid);
+    if (!matchUuid) return done({ ok: false, error: "No active conversation." });
+
+    const peerSession = [...activeMatches.entries()]
+      .find(([sid, mid]) => mid === matchUuid && sid !== sessionUuid)?.[0];
+
+    if (!peerSession) return done({ ok: false, error: "Partner not found." });
+
+    const type = String(payload?.type || "icebreaker");
+    const prompts = ACTIVITY_PROMPTS[type] || ACTIVITY_PROMPTS.icebreaker;
+    const prompt = prompts[Math.floor(Math.random() * prompts.length)];
+
+    const labels = {
+      icebreaker: "icebreaker",
+      would_you_rather: "would you rather",
+      this_or_that: "this or that",
+      quick_question: "quick question"
+    };
+
+    const event = {
+      type,
+      label: labels[type] || "icebreaker",
+      prompt,
+      sentAt: new Date().toISOString()
+    };
+
+    io.to(`session:${sessionUuid}`).emit("activity-prompt", event);
+    io.to(`session:${peerSession}`).emit("activity-prompt", event);
+    done({ ok: true });
+  });
+
   socket.on("request-icebreaker", (done = () => {}) => {
     const matchUuid = activeMatches.get(sessionUuid);
     if (!matchUuid) return done({ ok: false, error: "No active conversation." });
@@ -699,10 +848,15 @@ io.on("connection", (socket) => {
     if (!peerSession) return done({ ok: false, error: "Partner not found." });
 
     const prompt = ICEBREAKERS[Math.floor(Math.random() * ICEBREAKERS.length)];
-    const event = { prompt, sentAt: new Date().toISOString() };
+    const event = {
+      type: "icebreaker",
+      label: "icebreaker",
+      prompt,
+      sentAt: new Date().toISOString()
+    };
 
-    io.to(`session:${sessionUuid}`).emit("icebreaker", event);
-    io.to(`session:${peerSession}`).emit("icebreaker", event);
+    io.to(`session:${sessionUuid}`).emit("activity-prompt", event);
+    io.to(`session:${peerSession}`).emit("activity-prompt", event);
     done({ ok: true });
   });
 
@@ -822,7 +976,16 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("disconnect", async () => {
+    socket.on("conversation-feedback", ({ rating } = {}) => {
+    if (!["good", "okay", "bad"].includes(rating)) return;
+
+    const matchUuid = activeMatches.get(sessionUuid) || `recent:${sessionUuid}`;
+    const feedback = conversationFeedback.get(matchUuid) || {};
+    feedback[sessionUuid] = rating;
+    conversationFeedback.set(matchUuid, feedback);
+  });
+
+socket.on("disconnect", async () => {
     queue.delete(sessionUuid);
 
     sessionToSocket.delete(sessionUuid);

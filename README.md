@@ -307,3 +307,427 @@ Microphone recording requires browser permission. On deployed sites, microphone 
 - added focus-visible accessibility, escape-key cancellation, auto-growing composer, and a near-limit character counter.
 - added subtle chat entrance, skeleton loading, haptic feedback where supported, and reduced-motion support.
 - `schema.sql` remains unchanged.
+
+
+## v3.2 reactions and desktop conversation polish
+
+- added live Messenger-style reactions to text and voice messages.
+- reactions are anonymous, session-only, and synchronized to both participants.
+- users can toggle Like, Heart, Laugh, Wow, or Sad reactions.
+- desktop shows reaction/reply controls on message hover.
+- mobile exposes React and Reply through the existing long-press action sheet.
+- fixed the desktop composer so Send stays compact instead of stretching across the row.
+- highlighted the always-visible End button with a lighter rose destructive palette that stays inside the AnonIsko theme.
+- `schema.sql` remains unchanged.
+
+
+## v3.3 emoji and reactions system
+
+- replaced the old icon-based reactions with Messenger-style emoji reactions.
+- reaction bar now includes Heart, Laugh, Wow, Sad, Cry, Angry, and Like.
+- reactions remain synchronized live between both anonymous users.
+- added a full emoji picker beside the desktop composer.
+- emoji picker includes categories, search, frequently used emojis, smileys, animals, food, activities, travel, objects, and symbols.
+- selected emojis are inserted at the current message cursor position.
+- mobile emoji picker uses a bottom-sheet layout.
+- reactions and emoji picker are frontend/session features; `schema.sql` remains unchanged.
+
+
+## v3.3.1 mobile conversation ui fix
+
+- fixed the mobile composer so emoji, message input, and Send stay on one row.
+- kept Voice as a compact mobile action below the composer.
+- removed desktop hover reaction/reply controls from phone layouts.
+- fixed the stray `laugh` text caused by an old reaction identifier.
+- mobile reactions remain available through long press and the action sheet.
+- `schema.sql` remains unchanged.
+
+
+## v3.3.4 navigation and matching polish
+
+- highlighted Main chat on Home so users can find the primary action faster.
+- added the AnonIsko favicon/logo inside the anonymous profile modal.
+- hid modal scrollbars and made the close button sticky.
+- removed visible online/searching counters for now.
+- vibes no longer affect matchmaking score; any vibe can match with any other vibe.
+- shared interests can still be used as a soft preference.
+- `schema.sql` remains unchanged.
+
+
+## v3.3.5 modal close and online cleanup
+
+- fixed the profile modal X button by positioning it absolutely inside the modal instead of using sticky positioning.
+- removed the remaining online counter from the anonymous profile popup.
+- kept the modal scrollbar hidden and preserved mobile responsiveness.
+- `schema.sql` remains unchanged.
+
+
+## v3.3.6 sticky profile modal header
+
+- removed the remaining green online indicator from the profile modal.
+- made the AnonIsko modal logo and X button stay together in a sticky header while scrolling.
+- kept the modal scrollbar visually hidden.
+- `schema.sql` remains unchanged.
+
+
+## v3.3.7 performance and modal ui cleanup
+
+- removed the sticky profile modal header because it was causing layout bugs.
+- simplified the modal into a normal top row with logo and close button.
+- reduced heavy blur/backdrop-filter effects that can cause lag on phones.
+- removed broad transitions and reduced animation durations.
+- reduced frequent box shadows and layout-shifting hover transforms.
+- simplified the mobile modal spacing and controls.
+- `schema.sql` remains unchanged.
+
+
+## v3.3.8 mobile chat and activities
+
+- rebuilt the mobile conversation layout around the viewport so the header, messages, composer, and Voice action fit cleanly on phones.
+- partner gender and campus now wrap instead of being truncated.
+- replaced the full-width Icebreaker bar with a compact Activities button beside Main chat.
+- Activities opens Icebreaker, Would You Rather, This or That, and Quick Question options.
+- activity prompts are synchronized to both users and remain session-only.
+- `schema.sql` remains unchanged.
+
+
+## v3.3.9 mobile composer cleanup
+
+- moved a Voice shortcut beside the Activities/game control in the Main chat row.
+- removed the redundant bottom Voice dock on phones.
+- fixed the mobile message input width and the empty strip beside the textarea.
+- hid the visual chat/message-input scrollbars while keeping scrolling functional.
+- tightened the mobile partner header and composer sizing.
+- `schema.sql` remains unchanged.
+
+
+## v3.3.10 mobile header and composer controls
+
+- fixed the partner header collapsing gender/campus into vertical letters.
+- removed the Voice shortcut from the Main chat row.
+- moved Activities beside Emoji and Voice in the composer.
+- mobile composer now uses Emoji + Voice + Activities + input + Send on one row.
+- simplified the Main chat strip again.
+- `schema.sql` remains unchanged.
+
+
+## v3.3.13 stable conversation header repair
+
+- rebuilt from the last stable mobile layout instead of layering fixes onto the broken partner-header build.
+- uses a fixed three-column structure: avatar, always-visible partner information, End/more controls.
+- always shows `Chatting with`, nickname, gender, and campus.
+- explicitly prevents vertical text/writing-mode collapse.
+- restored and protected the mobile message viewport so sending a message cannot collapse/disappear the chat area.
+- removed the remaining top online counter.
+- `schema.sql` remains unchanged.
+
+
+## v3.3.14 mobile composer, reply, and reactions repair
+
+- switched the phone conversation body to a flex layout so the composer remains visible and stable.
+- fixed the mobile message input surface, focus state, and Send alignment.
+- removed the redundant phone Voice dock; Emoji, Voice, Activities, input, and Send stay in one bottom bar.
+- phone users can tap or long-press a message to open message actions.
+- the message action sheet now shows the full reaction strip directly plus Reply.
+- reply preview is anchored above the composer and no longer overlaps/disappears into the chat viewport.
+- `schema.sql` remains unchanged.
+
+
+## v3.3.15 rate limit + automatic leave ending
+
+- moved the HTTP rate limiter from the entire website to `/api` only.
+- increased API allowance to 300 requests per minute.
+- normal HTML, CSS, JavaScript, images, and page refreshes no longer consume the API rate limit.
+- added a lightweight leave beacon endpoint.
+- leaving the conversation page, returning Home, closing the tab, or closing the browser ends the active conversation.
+- the other participant receives the normal partner-ended state.
+- explicit End still works and duplicate end requests are suppressed.
+- `schema.sql` remains unchanged.
+
+
+## v3.3.16 mobile composer visibility
+
+- increased bottom composer height and spacing on phones.
+- added mobile safe-area padding for browser bars and phone gesture areas.
+- raised emoji, voice, activities, message input, and Send controls so they are not clipped.
+- added a little separation between the conversation timer and composer.
+- kept the message viewport scrollable without exposing a scrollbar.
+- `schema.sql` remains unchanged.
+
+
+## v3.3.17 composer cleanup
+
+- removed the separator line above the mobile composer.
+- message input starts with `Say hi!`.
+- `Say hi!` disappears after the first chat message in the conversation.
+- a new conversation resets the placeholder back to `Say hi!`.
+- `schema.sql` remains unchanged.
+
+
+## v3.3.18 theme toggle polish
+
+- light mode now shows a Sun icon.
+- dark mode now shows a Moon icon.
+- improved theme switching animation with smoother color, border, and background transitions.
+- added a short icon swap animation.
+- respects reduced-motion accessibility settings.
+- `schema.sql` remains unchanged.
+
+
+## v3.3.19 global dark-mode readability
+
+- rebuilt the dark-mode text palette across all pages and UI components.
+- fixed unreadable text in confirmation dialogs, modals, action sheets, forms, Home, About, Terms, footer, chat, activities, reactions, and conversation-ended states.
+- improved placeholder, muted, label, and secondary-text contrast.
+- preserved maroon brand accents while increasing dark-mode accessibility.
+- `schema.sql` remains unchanged.
+
+
+## v3.6.0 conversation feedback + timed notices
+
+Added only:
+- Conversation Feedback: Good / Okay / Bad after ending a chat.
+- Safety Reminder: subtle privacy reminder at about 12 minutes.
+- Conversation Streak: 10, 30, and 60-minute milestones.
+
+The safety reminder is inline, not a modal.
+`schema.sql` remains unchanged.
+
+
+## v3.6.1 About Me + Vibe Indicator
+
+Added only:
+- Anonymous About Me: optional up to 120 characters.
+- Conversation Vibe Indicator: subtle badge in the chat header with icons for Gaming, Casual, Study, and Late Night.
+
+`schema.sql` remains unchanged.
+
+
+## v3.6.6 Home opacity / intro-state fix
+
+- fixed the Home page becoming permanently faded at 40% opacity.
+- removed `home-entering` from the initial HTML state.
+- the intro animation no longer dims or scales the entire `.site-shell`.
+- added cleanup for refresh, pageshow/pagehide, and browser back-forward cache.
+- added a 1.9 second fail-safe so stale intro state can never leave the page faded.
+- `schema.sql` remains unchanged.
+
+
+## v3.6.7 In-chat branding
+
+- Added a subtle `AnonIsko.com` watermark inside the conversation background.
+- The watermark stays behind messages and cannot interfere with clicking, selecting, replying, reactions, or scrolling.
+- Responsive on desktop and mobile.
+- Separate low-opacity treatment for light and dark modes.
+
+
+## v3.6.8 mobile conversation layout
+
+- Mobile chat layout redesigned closer to the supplied AnimoChat reference while preserving AnonIsko styling.
+- Added a horizontally-scrollable Icebreaker / quick-prompt rail.
+- Tightened mobile message bubbles and spacing.
+- Moved `AnonIsko.com` branding to a subtle lower-right chat watermark on phones.
+- Typing indicator sits naturally above the bottom interaction area.
+- Composer is now a compact mobile-first single-row layout.
+- Desktop layout remains unchanged.
+
+
+## v3.6.9 mobile message actions
+
+- Tap or long-press a phone message to open an AnonIsko-themed reaction strip.
+- Added compact Reply and Copy actions beneath the reactions.
+- Reaction count badge remains attached to the message bubble.
+- Dark and light mode styles follow the supplied reference while keeping AnonIsko colors.
+
+
+## v3.6.10 mobile composer repair
+
+- fixed the phone composer collapsing below the quick-prompt rail.
+- restored Emoji, Voice, Activities, message input, and Send into one visible row.
+- removed the broken absolute-positioned Send behavior on mobile.
+- kept quick prompts above the composer without overlapping controls.
+
+
+## v3.6.11 mobile responsiveness cleanup
+
+- reduced the mobile quick-prompt rail to exactly two controls:
+  Icebreaker + one rotating conversation prompt.
+- rebuilt the phone composer as a fixed 5-column layout:
+  Voice / Emoji / Activities / Message / Send.
+- removed horizontal overflow from the bottom conversation UI.
+- tightened extra-small phone sizing.
+
+
+## v3.6.12 mobile icebreaker flow
+
+- Icebreaker button now only generates/changes the suggested question.
+- Tapping the suggested question sends it directly into the conversation.
+- Prompt automatically changes after sending.
+- Restored visible Emoji, Voice, and Games/Activities icons on phones.
+- Added a small icebreaker icon and prompt-refresh animation.
+
+
+## v3.6.13 composer controls + desktop icebreaker
+
+- Restored Emoji, Voice, and Games/Activities controls on phones.
+- Emoji control now uses the AnonIsko favicon as its visible icon.
+- Games/Activities uses a dedicated gamepad icon.
+- Icebreaker + one clickable suggestion now appears on desktop as well as phone.
+- Rebuilt composer layout responsively for desktop, phone, and extra-small phones.
+
+
+## v3.6.14 mobile header + composer repair
+
+- Keeps the AnonIsko site header visible at the top on phones.
+- Only the message body scrolls; the top header, partner header, quick prompts, and composer remain in layout.
+- Forces favicon Emoji, Voice, and Games/Activities buttons visible on mobile.
+- Rebuilds the phone composer as Emoji / Voice / Games / Input / Send.
+- Removes horizontal overflow from quick prompts and composer controls.
+
+
+## v3.6.16 Icebreaker + watermark + favicon fix
+
+- Fixed the Icebreaker handler scope bug.
+- Icebreaker button changes the question; tapping the question sends it through the normal composer send path.
+- Emoji button uses `/assets/favicon.svg`.
+- Watermark is subtle and centered on desktop, smaller on the lower-right for phones.
+- `schema.sql` unchanged.
+
+
+## v3.6.17 gestures + Happy Face icon + watermark
+
+- Emoji button uses Happy Face icon #4989500 from Flaticon.
+- Phone: long-press a message for reactions/actions.
+- Phone: slide/swipe a message right to reply.
+- Fixed desktop Emoji / Voice / Games / input / Send alignment.
+- AnonIsko.com is now a small lower-right in-chat watermark.
+- Attribution: Happy Face icon by th studio from Flaticon.
+- `schema.sql` unchanged.
+
+
+## v3.6.19 themed emoji + message bubble fix
+
+- Emoji button now uses the Happy Face artwork as a CSS mask so it automatically follows AnonIsko's maroon theme.
+- Dark mode uses the matching pink accent.
+- Fixed short messages such as `hey` wrapping vertically on phones.
+- Long messages still wrap normally within responsive message bubbles.
+- Swipe-to-reply no longer causes message bubbles to collapse in width.
+- `schema.sql` unchanged.
+
+
+## v3.6.21 consent headline overlap fix
+
+- Reduced the desktop size of `Use AnonIsko respectfully.`.
+- Added a strict maximum width so the heading can never overlap the Terms panel.
+- Increased the desktop column gap and made both columns responsive.
+- Tightened heading/description spacing for desktop, tablet, and phone.
+- `schema.sql` unchanged.
+
+
+## v3.6.22 consent button + mobile scroll fix
+
+- Both consent checkboxes now reliably enable `I agree & continue`.
+- Clicking the button stores Terms + 18+ confirmation and navigates to `/home`.
+- Rebuilt the consent controller to avoid conflicting/duplicate listeners.
+- Restored vertical scrolling and touch scrolling on phone/tablet.
+- Terms expand naturally on small screens instead of trapping the page inside a non-scrollable viewport.
+- `schema.sql` unchanged.
+
+
+## v3.6.23 consent + chat polish
+
+- Unified consent storage keys and removed conflicting consent logic.
+- Terms + 18+ checkboxes now enable the button reliably.
+- `I agree & continue` saves both confirmations and redirects to `/home`.
+- Reduced and strengthened the consent headline gradient for readability.
+- Restored mobile message bubble width so messages no longer collapse vertically.
+- Added partner-found animation and a short WebAudio chime.
+- Added subtle message entrance and composer interaction animations.
+- Respects `prefers-reduced-motion`.
+- `schema.sql` unchanged.
+
+
+## v3.6.24 Home redesign
+
+- Redesigned Home to feel closer to the supplied reference while retaining AnonIsko's own maroon/cream identity.
+- Added large centered AnonIsko branding, intro copy, peak-hours pill, Main chat card, and feature cards.
+- Added support contact: `pupanonisko@gmail.com`.
+- Added footer: `© 2026 AnonIsko. All rights reserved.`
+- Responsive for desktop, tablet, and phone.
+- `schema.sql` unchanged.
+
+
+## v3.6.25 Home matching flow
+
+- Reworked Home to: Username -> Male/Female/Any -> details modal -> Find someone.
+- Existing profile/matching modal is preserved and repaired.
+- University, About Me, Interests and existing matching fields stay inside the details modal.
+- Removed the peak-hours pill.
+- Restored the older animated AnonIsko maroon/pink gradient.
+- Replaced Home emoji glyphs with Flaticon icon masks.
+- Footer includes `pupanonisko@gmail.com` and `© 2026 AnonIsko. All rights reserved.`
+- Flaticon assets are used under their applicable attribution/license terms.
+- `schema.sql` unchanged.
+
+
+## v3.6.26 Home control + Flaticon fix
+
+- Moved Home quick-start interactions out of inline JavaScript and into `home.js`, fixing CSP-related dead buttons.
+- Male / Female / Any now reliably select the desired match preference.
+- Continue copies the username + preference into the existing profile modal and opens it.
+- Existing modal remains the details step for user's gender, university, vibe, interests, About Me, and Find someone.
+- Bundled Home Flaticon assets locally so icons render even when remote CDN masks are blocked.
+- Improved modal responsiveness on phone.
+- `schema.sql` unchanged.
+
+
+## v3.6.27 inline Home matching form
+
+- Removed the profile modal from the Home matching flow.
+- Home now uses: Nickname -> Match with Male/Female/Any -> University -> Conversation vibe -> Interests -> About me -> Find someone.
+- Removed duplicate Nickname and Gender fields from the old modal by removing the modal entirely.
+- Matching labels now use:
+  - Male -> `Finding an Isko`
+  - Female -> `Finding an Iska`
+  - Any -> `Finding an Iska or Isko`
+- Preference is saved and reflected on the Finding page.
+- Responsive for desktop, tablet, and phone.
+- `schema.sql` unchanged.
+
+
+## v3.6.28 Home profile validation + staged reveal
+
+- Fixed `Please complete your profile correctly.` appearing on a completed Home form.
+- Added staged animated flow:
+  Match with -> University/Campus -> Conversation vibe -> Interests -> About me -> Find someone.
+- Selected options animate when chosen.
+- Finding wording:
+  - Male -> `Finding an Isko...`
+  - Female -> `Finding an Iska...`
+  - Any -> `Finding an Iska or Isko...`
+- Responsive on desktop and phone.
+- `schema.sql` unchanged.
+
+
+## v3.6.29 campus option + matchmaking label fix
+
+- Added `Other school / Rather not say` as the first selectable campus option.
+- Backend CAMPUS_LIST now accepts that value, so profile validation will not reject it.
+- Fixed matchmaking label mapping:
+  - Male -> `Finding an Isko...`
+  - Female -> `Finding an Iska...`
+  - Any -> `Finding an Iska or Isko...`
+- Normalized saved preference values to `male`, `female`, or `anyone`.
+- `schema.sql` unchanged.
+
+
+## v3.6.30 matchmaking wording source-of-truth fix
+
+- Removed the old Finding-page logic that derived the target from `profile.gender`.
+- The Finding page now uses only `profile.preference` / canonical saved preference.
+- The intro heading, main matchmaking heading, and rotating search phrase all use the same mapping:
+  - Male -> `Finding an Isko...`
+  - Female -> `Finding an Iska...`
+  - Any -> `Finding an Iska or Isko...`
+- Prevents older code from overwriting the correct wording after page load.
+- `schema.sql` unchanged.

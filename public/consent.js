@@ -1,28 +1,61 @@
 (() => {
-  const key = "anonisko-terms-agreed-v1";
-  const checkbox = document.getElementById("agreeCheckbox");
-  const button = document.getElementById("agreeButton");
+  const CONSENT_KEY = "anonisko-terms-agreed-v1";
+  const AGE_KEY = "anonisko-age18-confirmed-v1";
 
-  if (localStorage.getItem(key) === "yes") {
+  const termsCheckbox = document.getElementById("termsCheckbox");
+  const age18Checkbox = document.getElementById("age18Checkbox");
+  const agreeButton = document.getElementById("agreeButton");
+
+  if (!termsCheckbox || !age18Checkbox || !agreeButton) return;
+
+  function hasConsent() {
+    try {
+      return localStorage.getItem(CONSENT_KEY) === "yes"
+        && localStorage.getItem(AGE_KEY) === "yes";
+    } catch {
+      return false;
+    }
+  }
+
+  function syncConsentState() {
+    const ready = Boolean(termsCheckbox.checked && age18Checkbox.checked);
+    agreeButton.disabled = !ready;
+    agreeButton.setAttribute("aria-disabled", String(!ready));
+    agreeButton.classList.toggle("is-ready", ready);
+  }
+
+  if (hasConsent()) {
     window.location.replace("/home");
     return;
   }
 
-  checkbox.addEventListener("change", () => {
-    button.disabled = !checkbox.checked;
-  });
+  termsCheckbox.addEventListener("change", syncConsentState);
+  age18Checkbox.addEventListener("change", syncConsentState);
 
-  button.addEventListener("click", () => {
-    if (!checkbox.checked || button.disabled) return;
+  agreeButton.addEventListener("click", (event) => {
+    event.preventDefault();
 
-    button.disabled = true;
-    button.textContent = "Continuing...";
+    if (!(termsCheckbox.checked && age18Checkbox.checked)) {
+      syncConsentState();
+      return;
+    }
 
-    localStorage.setItem(key, "yes");
+    agreeButton.disabled = true;
+    agreeButton.textContent = "Continuing...";
+
+    try {
+      localStorage.setItem(CONSENT_KEY, "yes");
+      localStorage.setItem(AGE_KEY, "yes");
+    } catch (error) {
+      console.warn("Could not store consent:", error);
+    }
+
     document.body.classList.add("consent-leaving");
 
-    setTimeout(() => {
-      window.location.replace("/home");
-    }, 420);
+    window.setTimeout(() => {
+      window.location.href = "/home";
+    }, 180);
   });
+
+  syncConsentState();
 })();
